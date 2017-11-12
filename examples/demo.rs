@@ -1,9 +1,11 @@
-#![feature(plugin)]
-#![plugin(plex)]
+#![feature(use_extern_macros)]
+extern crate plex;
 
 use std::io::Read;
 
 mod lexer {
+    use plex::lexer;
+
     #[derive(Debug, Clone)]
     pub enum Token {
         Ident(String),
@@ -41,7 +43,7 @@ mod lexer {
             } else {
                 panic!("integer {} is out of range", text)
             }, text)
-        },
+        }
 
         r#"[a-zA-Z_][a-zA-Z0-9_]*"# => (Token::Ident(text.to_owned()), text),
 
@@ -86,7 +88,8 @@ mod lexer {
         type Item = (Token, Span);
         fn next(&mut self) -> Option<(Token, Span)> {
             loop {
-                let tok = if let Some(tok) = next_token(&mut self.remaining) {
+                let tok = if let Some((tok, new_remaining)) = next_token(self.remaining) {
+                    self.remaining = new_remaining;
                     tok
                 } else {
                     return None
@@ -105,7 +108,8 @@ mod lexer {
 }
 
 mod ast {
-    use lexer::Span;
+    use plex::parser;
+    use crate::lexer::Span;
 
     #[derive(Debug)]
     pub struct Program {
@@ -132,9 +136,10 @@ mod ast {
 }
 
 mod parser {
-    use ::ast::*;
-    use ::lexer::Token::*;
-    use ::lexer::*;
+    use crate::ast::*;
+    use crate::lexer::Token::*;
+    use crate::lexer::*;
+    use plex::parser;
     parser! {
         fn parse_(Token, Span);
 
@@ -214,7 +219,7 @@ mod parser {
 }
 
 mod interp {
-    use ::ast::*;
+    use crate::ast::*;
     use std::collections::HashMap;
 
     pub fn interp<'a>(p: &'a Program) {
@@ -224,7 +229,7 @@ mod interp {
         }
     }
     fn interp_expr<'a>(env: &mut HashMap<&'a str, i64>, expr: &'a Expr) -> i64 {
-        use ::ast::Expr_::*;
+        use crate::ast::Expr_::*;
         match expr.node {
             Add(ref a, ref b) => interp_expr(env, a) + interp_expr(env, b),
             Sub(ref a, ref b) => interp_expr(env, a) - interp_expr(env, b),
@@ -250,6 +255,7 @@ fn main() {
     let mut s = String::new();
     std::io::stdin().read_to_string(&mut s).unwrap();
     let lexer = lexer::Lexer::new(&s);
+    println!("{:?}", lexer.collect::<Vec<_>>());
     let program = parser::parse(lexer).unwrap();
     interp::interp(&program);
 }
