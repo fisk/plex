@@ -317,7 +317,7 @@ where T: Ord + fmt::Debug + fmt::Display,
             let tmp = gensym("result");
             let lambda_ty = lhs_ty.clone();
             reduce_stmts.push(cx.stmt_let_typed(DUMMY_SP, false, tmp, lhs_ty.clone(),
-                P(quote_expr!(cx, ( || -> $lambda_ty { $result } )() ).unwrap())));
+                quote_expr!(cx, ( || -> $lambda_ty { $result } )() )));
             reduce_stmts.push(quote_stmt!(cx,
                 $stack_id.push(Box::new($tmp) as Box<::std::any::Any>);
             ).unwrap());
@@ -468,14 +468,6 @@ fn parse_parser<'a>(
         priority: i32,
     }
 
-    fn pretty_rule(lhs: ast::Name, syms: &[Symbol<TerminalPattern, ast::Name>]) -> String {
-        let mut r = String::new();
-        let _ = write!(&mut r, "{} ->", lhs);
-        for sym in syms.iter() {
-            let _ = write!(&mut r, " {}", sym);
-        }
-        r
-    }
     // Pretty-print an item set, for error messages.
     fn pretty(x: &ItemSet<TerminalPattern, ast::Name, Action>, pad: &str) -> String {
         let mut r = String::new();
@@ -707,7 +699,7 @@ fn parse_parser<'a>(
                 ast::PatKind::TupleStruct(cx.path_ident(DUMMY_SP, ident.0), vec![], Some(0))
             })
         },
-        |lhs, act, cx, syms| {
+        |_lhs, act, cx, syms| {
             let mut expr = act.expr.clone();
             let mut args = vec![];
             for (i, (x, sym)) in act.binds.iter().zip(syms.iter()).enumerate() {
@@ -736,16 +728,6 @@ fn parse_parser<'a>(
                     }
                     Binding::None => None,
                 });
-            }
-
-            // XXX: should be a cargo feature (?)
-            if false {
-                let rule_str = pretty_rule(*lhs, syms);
-                let rule_str = &*rule_str;
-                expr = P(quote_expr!(cx, {
-                    println!("reduce by {}", $rule_str);
-                    $expr
-                }).unwrap());
             }
 
             (expr, args, act.span)
